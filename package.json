@@ -14,7 +14,8 @@
     "test": "node --test tests/*.test.js",
     "build:workflow": "node scripts/build-workflow.js",
     "reset:demo": "node scripts/reset-demo.js",
-    "demo:polimorfismo": "node src/demo-polimorfismo.js"
+    "demo:polimorfismo": "node src/demo-polimorfismo.js",
+    "web": "node scripts/serve-web.js"
   },
   "devDependencies": {
     "json-server": "0.17.4"

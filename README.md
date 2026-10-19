@@ -4,6 +4,18 @@ Laboratorio #1 - Soluciones de negocio con POO y n8n. Erian Badilla Fallas.
 
 Automatiza el vencimiento de facturas con días hábiles, JSON Server y los feriados nacionales de Costa Rica de Nager.Date. JavaScript puro, sin interfaz web. La fecha de vencimiento depende de cada factura; no se asigna un plazo fijo a todas.
 
+## Abrir la web visual
+
+La carpeta `web/` incluye la versión en beige, blanco y verde duende. Desde la raíz del proyecto ejecuta:
+
+```bash
+npm run web
+```
+
+Abre `http://localhost:8080`. Este comando solo necesita Node.js y no requiere iniciar JSON Server ni n8n. Incluye el simulador, el recorrido del flujo, los ejemplos de error y la jerarquía de clases. Los cálculos usan los mismos modelos del laboratorio y los calendarios locales de 2026-2027. La demostración permite emisiones de 2026.
+
+La web es material complementario para explicar el laboratorio. La consola y el workflow siguen siendo la solución operativa. Si modificas `src/models/dominio.js`, regenera el workflow y actualiza también `web/assets/dominio.js` antes de volver a empaquetar.
+
 ## Empezar en Windows o en otro sistema con Node.js 22 o superior
 
 Abre la carpeta del proyecto en VS Code y ejecuta:
