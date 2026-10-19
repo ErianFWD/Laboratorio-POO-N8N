@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="100 -10 420 460"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#25745E"/></marker></defs><rect x="100" y="-10" width="420" height="460" fill="white"/>
+<rect x="135" y="4" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="25.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Inicio manual o diario a las 08:00</text>
+<rect x="135" y="56" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="77.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Configuración y GET /facturas</text>
+<rect x="135" y="108" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="129.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Validar y construir la clase hija</text>
+<rect x="135" y="160" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="181.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">IF factura válida</text>
+<rect x="135" y="214" width="230" height="46" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="240.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">GET feriados del año y del siguiente</text>
+<rect x="135" y="280" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="301.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Code con jerarquía y calendario</text>
+<rect x="135" y="334" width="230" height="36" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="355.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">IF requiere actualización</text>
+<rect x="135" y="394" width="230" height="42" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="250.0" y="418.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">PATCH y verificación de respuesta</text>
+<rect x="385" y="151" width="110" height="45" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="440.0" y="176.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Omitida o error</text>
+<rect x="385" y="328" width="110" height="42" rx="5" fill="#ECF4F0" stroke="#25745E"/>
+<text x="440.0" y="346.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">Sin cambios o</text>
+<text x="440.0" y="357.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#183B43">error</text>
+<path d="M250,40 L250,56" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,92 L250,108" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,144 L250,160" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,196 L250,214" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,260 L250,280" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,316 L250,334" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M250,370 L250,394" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M365,178 L385,178" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<path d="M365,352 L385,352" stroke="#25745E" fill="none" marker-end="url(#arrow)"/>
+<text x="370" y="171" font-family="Arial" font-size="8">No</text><text x="255" y="208" font-family="Arial" font-size="8">Sí</text><text x="370" y="345" font-family="Arial" font-size="8">No</text><text x="255" y="387" font-family="Arial" font-size="8">Sí</text></svg>

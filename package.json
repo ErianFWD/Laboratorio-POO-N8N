@@ -1,0 +1,22 @@
+{
+  "name": "facturalab-erian-badilla",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Laboratorio individual POO y n8n con feriados de Costa Rica",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "demo": "node src/main.js --demo",
+    "db": "json-server --watch jsonserver/db.json --host 0.0.0.0 --port 3000",
+    "test": "node --test tests/*.test.js",
+    "build:workflow": "node scripts/build-workflow.js",
+    "reset:demo": "node scripts/reset-demo.js",
+    "demo:polimorfismo": "node src/demo-polimorfismo.js"
+  },
+  "devDependencies": {
+    "json-server": "0.17.4"
+  }
+}

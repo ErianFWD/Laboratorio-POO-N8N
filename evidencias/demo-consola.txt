@@ -1,0 +1,39 @@
+FacturaLab | evaluación 2026-10-19 | fixtures sin red | solo lectura
+{
+  "id": "FAC-001",
+  "accion": "actualizar",
+  "cambios": {
+    "fechaVencimiento": "2026-09-16",
+    "estado": "vencida"
+  }
+}
+{
+  "id": "FAC-002",
+  "accion": "actualizar",
+  "cambios": {
+    "fechaVencimiento": "2026-10-19",
+    "estado": "pendiente"
+  }
+}
+{
+  "id": "FAC-003",
+  "accion": "actualizar",
+  "cambios": {
+    "fechaVencimiento": "2026-11-09",
+    "estado": "pendiente"
+  }
+}
+{
+  "valida": false,
+  "id": "FAC-004",
+  "accion": "omitida",
+  "motivo": "Estado no pendiente."
+}
+{
+  "id": "FAC-005",
+  "accion": "actualizar",
+  "cambios": {
+    "fechaVencimiento": "2026-10-20",
+    "estado": "pendiente"
+  }
+}

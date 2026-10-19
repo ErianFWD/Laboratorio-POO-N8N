@@ -1,0 +1,25 @@
+services:
+  jsonserver:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install --omit=optional --no-audit --no-fund && npm run db"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./:/app
+      - jsonserver_modules:/app/node_modules
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.23.4
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      GENERIC_TIMEZONE: America/Costa_Rica
+      TZ: America/Costa_Rica
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - jsonserver
+volumes:
+  n8n_data:
+  jsonserver_modules:

@@ -1,0 +1,455 @@
+{
+  "id": "facturaLabCR01",
+  "name": "FacturaLab CR - POO y días hábiles",
+  "active": false,
+  "nodes": [
+    {
+      "id": "c67b698f0bd677d2c7ca8d22",
+      "name": "Inicio manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "06975326ecce198c89b27aa1",
+      "name": "Cada día 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "35a9d088031b16781c141b22",
+      "name": "Configuracion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        230,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Cambia jsonServerUrl a http://jsonserver:3000 si usas docker-compose.\n// fechaDemo vacía usa la fecha actual de Costa Rica. Demo reproducible: 2026-10-19.\nconst fechaDemo = '';\nconst hoy=fechaDemo || new Intl.DateTimeFormat('en-CA',{timeZone:'America/Costa_Rica',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());\nreturn [{json:{jsonServerUrl:'http://localhost:3000',hoy}}];"
+      }
+    },
+    {
+      "id": "dfb1d128e05315ae4d55a11e",
+      "name": "Consultar facturas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $('Configuracion').first().json.jsonServerUrl + '/facturas' }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "012687cee6abdba52390eb6a",
+      "name": "Preparar facturas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Fuente única de negocio. build-workflow.js incorpora este archivo en los nodos Code.\nclass ErrorNegocio extends Error {\n  constructor(codigo, mensaje) { super(mensaje); this.name = 'ErrorNegocio'; this.codigo = codigo; }\n}\nfunction fechaValida(texto) {\n  if (typeof texto !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(texto))\n    throw new ErrorNegocio('FECHA_INVALIDA', 'Se requiere una fecha YYYY-MM-DD.');\n  const d = new Date(texto + 'T00:00:00Z');\n  if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0,10) !== texto || +texto.slice(0,4) < 2000 || +texto.slice(0,4) > 2098)\n    throw new ErrorNegocio('FECHA_INVALIDA', 'Fecha inexistente o fuera del rango 2000-2098.');\n  return d;\n}\nclass CalendarioLaboral {\n  #feriados = new Set(); #anios;\n  constructor(respuestas, pais = 'CR') {\n    if (pais !== 'CR') throw new ErrorNegocio('PAIS_NO_SOPORTADO', 'Esta solución usa el calendario nacional CR.');\n    this.#anios = new Set();\n    if (!Array.isArray(respuestas) || respuestas.length !== 2)\n      throw new ErrorNegocio('API_FERIADOS', 'Se requieren dos respuestas anuales de feriados.');\n    for (const {anio, datos} of respuestas) {\n      if (!Number.isInteger(anio) || !Array.isArray(datos) || datos.length === 0 || this.#anios.has(anio))\n        throw new ErrorNegocio('API_FERIADOS', 'Respuesta anual de feriados vacía o inválida.');\n      this.#anios.add(anio);\n      for (const h of datos) {\n        fechaValida(h.date);\n        if (+h.date.slice(0,4) !== anio || h.countryCode !== pais || typeof h.global !== 'boolean' || !Array.isArray(h.types))\n          throw new ErrorNegocio('API_FERIADOS', 'Feriado con país, año o formato incorrecto.');\n        if (h.global && h.types.includes('Public')) this.#feriados.add(h.date);\n      }\n    }\n    const [a,b] = [...this.#anios].sort();\n    if (b !== a+1) throw new ErrorNegocio('API_FERIADOS', 'Los años deben ser consecutivos.');\n  }\n  esDiaHabil(fecha) {\n    const d = fechaValida(fecha);\n    if (!this.#anios.has(d.getUTCFullYear())) throw new ErrorNegocio('ANIO_SIN_FERIADOS', 'Falta consultar el calendario del año.');\n    return ![0,6].includes(d.getUTCDay()) && !this.#feriados.has(fecha);\n  }\n  sumarDiasHabiles(emision, dias) {\n    const d = fechaValida(emision);\n    if (!Number.isInteger(dias) || dias < 1 || dias > 60) throw new ErrorNegocio('PLAZO_INVALIDO', 'Plazo entero de 1 a 60 días hábiles.');\n    let acumulados=0;\n    // Tope de seguridad: nunca devolver un vencimiento parcial.\n    for (let intentos=0; intentos<366; intentos++) {\n      d.setUTCDate(d.getUTCDate()+1);\n      const fecha=d.toISOString().slice(0,10);\n      if (this.esDiaHabil(fecha)) acumulados++;\n      if (acumulados===dias) return fecha;\n    }\n    throw new ErrorNegocio('CALENDARIO_INVALIDO', 'No se completó el plazo dentro de un año.');\n  }\n}\nclass Factura {\n  #datos;\n  constructor(datos) {\n    if (!datos || typeof datos !== 'object') throw new ErrorNegocio('FACTURA_INVALIDA', 'Faltan datos de factura.');\n    if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(datos.id ?? ''))) throw new ErrorNegocio('ID_INVALIDO', 'ID obligatorio y seguro para URL.');\n    if (typeof datos.cliente !== 'string' || !datos.cliente.trim()) throw new ErrorNegocio('CLIENTE_INVALIDO', 'Cliente obligatorio.');\n    if (typeof datos.monto !== 'number' || !Number.isFinite(datos.monto) || datos.monto<=0) throw new ErrorNegocio('MONTO_INVALIDO', 'El monto debe ser un número positivo.');\n    if (datos.pais !== 'CR') throw new ErrorNegocio('PAIS_NO_SOPORTADO', 'La factura debe pertenecer al calendario CR.');\n    fechaValida(datos.fechaEmision);\n    if (!Number.isInteger(datos.plazoDiasHabiles) || datos.plazoDiasHabiles<1 || datos.plazoDiasHabiles>60) throw new ErrorNegocio('PLAZO_INVALIDO', 'Plazo entero de 1 a 60 días hábiles.');\n    if (!['pendiente','pagada','cancelada','vencida'].includes(datos.estado)) throw new ErrorNegocio('ESTADO_INVALIDO', 'Estado de factura desconocido.');\n    this.#datos=Object.freeze({...datos});\n  }\n  get id() { return String(this.#datos.id); }\n  get fechaEmision() { return this.#datos.fechaEmision; }\n  get plazoDiasHabiles() { return this.#datos.plazoDiasHabiles; }\n  calcularVencimiento(calendario) { return calendario.sumarDiasHabiles(this.fechaEmision,this.#datos.plazoDiasHabiles); }\n  evaluar(calendario, hoy) {\n    fechaValida(hoy);\n    if (this.#datos.estado !== 'pendiente') return {id:this.id,accion:'omitida',motivo:'Solo se procesan facturas pendientes.'};\n    if (this.fechaEmision>hoy) throw new ErrorNegocio('EMISION_FUTURA','La emisión no puede ser posterior a la fecha de evaluación.');\n    const fechaVencimiento=this.calcularVencimiento(calendario);\n    const estado=hoy>fechaVencimiento ? 'vencida' : 'pendiente';\n    const cambios={fechaVencimiento,estado};\n    return {id:this.id,accion:this.#datos.fechaVencimiento===fechaVencimiento && this.#datos.estado===estado ? 'sin_cambios' : 'actualizar',cambios};\n  }\n}\n// Extensión Reto 1: dos subclases sobreescriben el mismo método.\nclass FacturaEstandar extends Factura {\n  constructor(datos) {\n    super(datos);\n    if (datos.diasGracia != null && datos.diasGracia !== 0)\n      throw new ErrorNegocio('GRACIA_NO_APLICA', 'Una factura estándar no permite días de gracia.');\n  }\n  calcularVencimiento(calendario) {\n    return calendario.sumarDiasHabiles(this.fechaEmision, this.plazoDiasHabiles);\n  }\n}\nclass FacturaConGracia extends Factura {\n  #diasGracia;\n  constructor(datos) {\n    super(datos);\n    if (!Number.isInteger(datos.diasGracia) || datos.diasGracia < 1 || datos.diasGracia > 5)\n      throw new ErrorNegocio('GRACIA_INVALIDA', 'La gracia debe ser de 1 a 5 días hábiles, acordados en la factura.');\n    this.#diasGracia = datos.diasGracia;\n  }\n  get diasGracia() { return this.#diasGracia; }\n  calcularVencimiento(calendario) {\n    const contractual = super.calcularVencimiento(calendario);\n    return calendario.sumarDiasHabiles(contractual, this.#diasGracia);\n  }\n}\nfunction crearFactura(datos) {\n  // La selección se hace una sola vez; evaluar() usa despacho polimórfico.\n  const tipo = datos?.tipo ?? 'estandar';\n  if (tipo === 'estandar') return new FacturaEstandar(datos);\n  if (tipo === 'con_gracia') return new FacturaConGracia(datos);\n  throw new ErrorNegocio('TIPO_INVALIDO', 'Tipo de factura desconocido. Use estandar o con_gracia.');\n}\nfunction prepararFacturas(datos,hoy) {\n  fechaValida(hoy);\n  if (!Array.isArray(datos)) throw new ErrorNegocio('JSON_SERVER','JSON Server debe devolver un arreglo.');\n  const frecuencias=new Map();\n  for(const d of datos) if(d && d.id!=null) frecuencias.set(String(d.id),(frecuencias.get(String(d.id))||0)+1);\n  const salida=[];\n  for(const d of datos) {\n    try {\n      if(d && frecuencias.get(String(d.id))>1) throw new ErrorNegocio('ID_DUPLICADO','ID repetido en el lote; no se actualiza.');\n      const f=crearFactura(d);\n      if(d.estado!=='pendiente') {salida.push({valida:false,id:f.id,accion:'omitida',motivo:'Estado no pendiente.'});continue;}\n      if(f.fechaEmision>hoy) throw new ErrorNegocio('EMISION_FUTURA','La emisión es posterior a la evaluación.');\n      salida.push({valida:true,factura:d,anio:+f.fechaEmision.slice(0,4),hoy});\n    } catch(e) {salida.push({valida:false,id:d?.id??null,accion:'error',codigo:e.codigo||'DATOS_INVALIDOS',mensaje:e.message});}\n  }\n  return salida.length ? salida : [{valida:false,accion:'sin_facturas',motivo:'La colección está vacía.'}];\n}\nfunction procesarFactura(preparada, respuestaActual, respuestaSiguiente) {\n  try {\n    for(const r of [respuestaActual,respuestaSiguiente]) if(r?.statusCode!==200 || !Array.isArray(r.body))\n      throw new ErrorNegocio('API_FERIADOS','API de feriados no disponible o respuesta inválida. No se modifica la factura.');\n    const calendario=new CalendarioLaboral([{anio:preparada.anio,datos:respuestaActual.body},{anio:preparada.anio+1,datos:respuestaSiguiente.body}]);\n    return crearFactura(preparada.factura).evaluar(calendario,preparada.hoy);\n  } catch(e) {return {id:preparada.factura?.id,accion:'error',codigo:e.codigo||'ERROR_CALCULO',mensaje:e.message};}\n}\n\nconst r=$input.first().json;\nif(r.statusCode!==200 || !Array.isArray(r.body)) return [{json:{valida:false,accion:'error',codigo:'JSON_SERVER',mensaje:'No se recibió la colección. No se realizan escrituras.'}}];\nreturn prepararFacturas(r.body,$('Configuracion').first().json.hoy).map(json=>({json,pairedItem:{item:0}}));"
+      }
+    },
+    {
+      "id": "604eab6e993d9b8c5a94bb3e",
+      "name": "Clasificar entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all().map((item,i)=>({json:{...item.json,ruta:item.json.valida?'procesar':'informar'},pairedItem:{item:i}}));"
+      }
+    },
+    {
+      "id": "75c2f612616c5b0e1e06ce14",
+      "name": "Factura válida",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1150,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condicion",
+              "leftValue": "={{ $json.ruta }}",
+              "rightValue": "procesar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0f2e7213a4cb9261d4d49f39",
+      "name": "Feriados año emisión",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        -100
+      ],
+      "parameters": {
+        "url": "={{ 'https://date.nager.at/api/v3/PublicHolidays/' + $('Clasificar entrada').item.json.anio + '/CR' }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a68c78c8d611ecf0f663b723",
+      "name": "Feriados año siguiente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1610,
+        -100
+      ],
+      "parameters": {
+        "url": "={{ 'https://date.nager.at/api/v3/PublicHolidays/' + ($('Clasificar entrada').item.json.anio + 1) + '/CR' }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "efc8d0edfa7efdc21d5962b7",
+      "name": "Calcular con POO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -100
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Fuente única de negocio. build-workflow.js incorpora este archivo en los nodos Code.\nclass ErrorNegocio extends Error {\n  constructor(codigo, mensaje) { super(mensaje); this.name = 'ErrorNegocio'; this.codigo = codigo; }\n}\nfunction fechaValida(texto) {\n  if (typeof texto !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(texto))\n    throw new ErrorNegocio('FECHA_INVALIDA', 'Se requiere una fecha YYYY-MM-DD.');\n  const d = new Date(texto + 'T00:00:00Z');\n  if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0,10) !== texto || +texto.slice(0,4) < 2000 || +texto.slice(0,4) > 2098)\n    throw new ErrorNegocio('FECHA_INVALIDA', 'Fecha inexistente o fuera del rango 2000-2098.');\n  return d;\n}\nclass CalendarioLaboral {\n  #feriados = new Set(); #anios;\n  constructor(respuestas, pais = 'CR') {\n    if (pais !== 'CR') throw new ErrorNegocio('PAIS_NO_SOPORTADO', 'Esta solución usa el calendario nacional CR.');\n    this.#anios = new Set();\n    if (!Array.isArray(respuestas) || respuestas.length !== 2)\n      throw new ErrorNegocio('API_FERIADOS', 'Se requieren dos respuestas anuales de feriados.');\n    for (const {anio, datos} of respuestas) {\n      if (!Number.isInteger(anio) || !Array.isArray(datos) || datos.length === 0 || this.#anios.has(anio))\n        throw new ErrorNegocio('API_FERIADOS', 'Respuesta anual de feriados vacía o inválida.');\n      this.#anios.add(anio);\n      for (const h of datos) {\n        fechaValida(h.date);\n        if (+h.date.slice(0,4) !== anio || h.countryCode !== pais || typeof h.global !== 'boolean' || !Array.isArray(h.types))\n          throw new ErrorNegocio('API_FERIADOS', 'Feriado con país, año o formato incorrecto.');\n        if (h.global && h.types.includes('Public')) this.#feriados.add(h.date);\n      }\n    }\n    const [a,b] = [...this.#anios].sort();\n    if (b !== a+1) throw new ErrorNegocio('API_FERIADOS', 'Los años deben ser consecutivos.');\n  }\n  esDiaHabil(fecha) {\n    const d = fechaValida(fecha);\n    if (!this.#anios.has(d.getUTCFullYear())) throw new ErrorNegocio('ANIO_SIN_FERIADOS', 'Falta consultar el calendario del año.');\n    return ![0,6].includes(d.getUTCDay()) && !this.#feriados.has(fecha);\n  }\n  sumarDiasHabiles(emision, dias) {\n    const d = fechaValida(emision);\n    if (!Number.isInteger(dias) || dias < 1 || dias > 60) throw new ErrorNegocio('PLAZO_INVALIDO', 'Plazo entero de 1 a 60 días hábiles.');\n    let acumulados=0;\n    // Tope de seguridad: nunca devolver un vencimiento parcial.\n    for (let intentos=0; intentos<366; intentos++) {\n      d.setUTCDate(d.getUTCDate()+1);\n      const fecha=d.toISOString().slice(0,10);\n      if (this.esDiaHabil(fecha)) acumulados++;\n      if (acumulados===dias) return fecha;\n    }\n    throw new ErrorNegocio('CALENDARIO_INVALIDO', 'No se completó el plazo dentro de un año.');\n  }\n}\nclass Factura {\n  #datos;\n  constructor(datos) {\n    if (!datos || typeof datos !== 'object') throw new ErrorNegocio('FACTURA_INVALIDA', 'Faltan datos de factura.');\n    if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(datos.id ?? ''))) throw new ErrorNegocio('ID_INVALIDO', 'ID obligatorio y seguro para URL.');\n    if (typeof datos.cliente !== 'string' || !datos.cliente.trim()) throw new ErrorNegocio('CLIENTE_INVALIDO', 'Cliente obligatorio.');\n    if (typeof datos.monto !== 'number' || !Number.isFinite(datos.monto) || datos.monto<=0) throw new ErrorNegocio('MONTO_INVALIDO', 'El monto debe ser un número positivo.');\n    if (datos.pais !== 'CR') throw new ErrorNegocio('PAIS_NO_SOPORTADO', 'La factura debe pertenecer al calendario CR.');\n    fechaValida(datos.fechaEmision);\n    if (!Number.isInteger(datos.plazoDiasHabiles) || datos.plazoDiasHabiles<1 || datos.plazoDiasHabiles>60) throw new ErrorNegocio('PLAZO_INVALIDO', 'Plazo entero de 1 a 60 días hábiles.');\n    if (!['pendiente','pagada','cancelada','vencida'].includes(datos.estado)) throw new ErrorNegocio('ESTADO_INVALIDO', 'Estado de factura desconocido.');\n    this.#datos=Object.freeze({...datos});\n  }\n  get id() { return String(this.#datos.id); }\n  get fechaEmision() { return this.#datos.fechaEmision; }\n  get plazoDiasHabiles() { return this.#datos.plazoDiasHabiles; }\n  calcularVencimiento(calendario) { return calendario.sumarDiasHabiles(this.fechaEmision,this.#datos.plazoDiasHabiles); }\n  evaluar(calendario, hoy) {\n    fechaValida(hoy);\n    if (this.#datos.estado !== 'pendiente') return {id:this.id,accion:'omitida',motivo:'Solo se procesan facturas pendientes.'};\n    if (this.fechaEmision>hoy) throw new ErrorNegocio('EMISION_FUTURA','La emisión no puede ser posterior a la fecha de evaluación.');\n    const fechaVencimiento=this.calcularVencimiento(calendario);\n    const estado=hoy>fechaVencimiento ? 'vencida' : 'pendiente';\n    const cambios={fechaVencimiento,estado};\n    return {id:this.id,accion:this.#datos.fechaVencimiento===fechaVencimiento && this.#datos.estado===estado ? 'sin_cambios' : 'actualizar',cambios};\n  }\n}\n// Extensión Reto 1: dos subclases sobreescriben el mismo método.\nclass FacturaEstandar extends Factura {\n  constructor(datos) {\n    super(datos);\n    if (datos.diasGracia != null && datos.diasGracia !== 0)\n      throw new ErrorNegocio('GRACIA_NO_APLICA', 'Una factura estándar no permite días de gracia.');\n  }\n  calcularVencimiento(calendario) {\n    return calendario.sumarDiasHabiles(this.fechaEmision, this.plazoDiasHabiles);\n  }\n}\nclass FacturaConGracia extends Factura {\n  #diasGracia;\n  constructor(datos) {\n    super(datos);\n    if (!Number.isInteger(datos.diasGracia) || datos.diasGracia < 1 || datos.diasGracia > 5)\n      throw new ErrorNegocio('GRACIA_INVALIDA', 'La gracia debe ser de 1 a 5 días hábiles, acordados en la factura.');\n    this.#diasGracia = datos.diasGracia;\n  }\n  get diasGracia() { return this.#diasGracia; }\n  calcularVencimiento(calendario) {\n    const contractual = super.calcularVencimiento(calendario);\n    return calendario.sumarDiasHabiles(contractual, this.#diasGracia);\n  }\n}\nfunction crearFactura(datos) {\n  // La selección se hace una sola vez; evaluar() usa despacho polimórfico.\n  const tipo = datos?.tipo ?? 'estandar';\n  if (tipo === 'estandar') return new FacturaEstandar(datos);\n  if (tipo === 'con_gracia') return new FacturaConGracia(datos);\n  throw new ErrorNegocio('TIPO_INVALIDO', 'Tipo de factura desconocido. Use estandar o con_gracia.');\n}\nfunction prepararFacturas(datos,hoy) {\n  fechaValida(hoy);\n  if (!Array.isArray(datos)) throw new ErrorNegocio('JSON_SERVER','JSON Server debe devolver un arreglo.');\n  const frecuencias=new Map();\n  for(const d of datos) if(d && d.id!=null) frecuencias.set(String(d.id),(frecuencias.get(String(d.id))||0)+1);\n  const salida=[];\n  for(const d of datos) {\n    try {\n      if(d && frecuencias.get(String(d.id))>1) throw new ErrorNegocio('ID_DUPLICADO','ID repetido en el lote; no se actualiza.');\n      const f=crearFactura(d);\n      if(d.estado!=='pendiente') {salida.push({valida:false,id:f.id,accion:'omitida',motivo:'Estado no pendiente.'});continue;}\n      if(f.fechaEmision>hoy) throw new ErrorNegocio('EMISION_FUTURA','La emisión es posterior a la evaluación.');\n      salida.push({valida:true,factura:d,anio:+f.fechaEmision.slice(0,4),hoy});\n    } catch(e) {salida.push({valida:false,id:d?.id??null,accion:'error',codigo:e.codigo||'DATOS_INVALIDOS',mensaje:e.message});}\n  }\n  return salida.length ? salida : [{valida:false,accion:'sin_facturas',motivo:'La colección está vacía.'}];\n}\nfunction procesarFactura(preparada, respuestaActual, respuestaSiguiente) {\n  try {\n    for(const r of [respuestaActual,respuestaSiguiente]) if(r?.statusCode!==200 || !Array.isArray(r.body))\n      throw new ErrorNegocio('API_FERIADOS','API de feriados no disponible o respuesta inválida. No se modifica la factura.');\n    const calendario=new CalendarioLaboral([{anio:preparada.anio,datos:respuestaActual.body},{anio:preparada.anio+1,datos:respuestaSiguiente.body}]);\n    return crearFactura(preparada.factura).evaluar(calendario,preparada.hoy);\n  } catch(e) {return {id:preparada.factura?.id,accion:'error',codigo:e.codigo||'ERROR_CALCULO',mensaje:e.message};}\n}\n\nconst p=$('Clasificar entrada').item.json;\nreturn {json:procesarFactura(p,$('Feriados año emisión').item.json,$json)};"
+      }
+    },
+    {
+      "id": "d548dfd6f3fe6e73b6a804da",
+      "name": "Requiere actualización",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2070,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condicion",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "actualizar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e7a0c6468c0c5024ebc70bcc",
+      "name": "Actualizar factura",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2300,
+        -200
+      ],
+      "parameters": {
+        "url": "={{ $('Configuracion').first().json.jsonServerUrl + '/facturas/' + encodeURIComponent($json.id) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        },
+        "method": "PATCH",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.cambios) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "12d27268548e5f001a429d5b",
+      "name": "Verificar escritura",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2530,
+        -200
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const r=$json; const previsto=$('Calcular con POO').item.json;\nconst ok=r.statusCode===200 && String(r.body?.id)===String(previsto.id) && r.body?.estado===previsto.cambios.estado && r.body?.fechaVencimiento===previsto.cambios.fechaVencimiento;\nreturn {json:ok?{id:previsto.id,accion:'actualizada',factura:r.body}:{id:previsto.id,accion:'error',codigo:'ESCRITURA_NO_CONFIRMADA',mensaje:'Verifica GET /facturas/id antes de reintentar: el resultado puede ser incierto.'}};"
+      }
+    },
+    {
+      "id": "597a50ab695b3a15a14cdbe3",
+      "name": "Sin escritura",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      }
+    },
+    {
+      "id": "7aa6a3c44869ee256837257e",
+      "name": "Entrada omitida o error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all();"
+      }
+    }
+  ],
+  "connections": {
+    "Inicio manual": {
+      "main": [
+        [
+          {
+            "node": "Configuracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada día 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Configuracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuracion": {
+      "main": [
+        [
+          {
+            "node": "Consultar facturas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar facturas": {
+      "main": [
+        [
+          {
+            "node": "Preparar facturas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar facturas": {
+      "main": [
+        [
+          {
+            "node": "Clasificar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar entrada": {
+      "main": [
+        [
+          {
+            "node": "Factura válida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Factura válida": {
+      "main": [
+        [
+          {
+            "node": "Feriados año emisión",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Entrada omitida o error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feriados año emisión": {
+      "main": [
+        [
+          {
+            "node": "Feriados año siguiente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feriados año siguiente": {
+      "main": [
+        [
+          {
+            "node": "Calcular con POO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular con POO": {
+      "main": [
+        [
+          {
+            "node": "Requiere actualización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Requiere actualización": {
+      "main": [
+        [
+          {
+            "node": "Actualizar factura",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin escritura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar factura": {
+      "main": [
+        [
+          {
+            "node": "Verificar escritura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Costa_Rica"
+  },
+  "pinData": {}
+}

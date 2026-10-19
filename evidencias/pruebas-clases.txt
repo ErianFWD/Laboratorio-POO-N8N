@@ -1,0 +1,30 @@
+✔ salta fin de semana y feriado del 15 de septiembre (1.146292ms)
+✔ vencimiento no cuenta el día de emisión (0.202364ms)
+✔ día exacto del vencimiento continúa pendiente (1.092882ms)
+✔ día posterior queda vencida (0.152089ms)
+✔ cruce de año usa feriados de ambos años (0.176525ms)
+✔ pagadas y canceladas no cambian (0.171708ms)
+✔ fecha inexistente y emisión futura se rechazan (0.543826ms)
+✔ monto, cliente, ID y plazo se validan (0.442755ms)
+✔ API caída no produce cambios (0.99837ms)
+✔ API malformada, año o país incorrecto se rechazan (0.323636ms)
+✔ duplicados en el lote bloquean todas las copias (0.21327ms)
+✔ repetir evaluación no propone segundo PATCH (0.196125ms)
+✔ fuente no array y colección vacía (0.140832ms)
+✔ equivalencia del Code generado con las clases (10.918069ms)
+✔ dos hijas de Factura y dos implementaciones propias del mismo método (1.199452ms)
+✔ polimorfismo: misma entrada y consumidor, vencimiento distinto (1.743078ms)
+✔ gracia salta fin de semana y feriado (0.6255ms)
+✔ gracia cruza año mediante el calendario consultado (0.175273ms)
+✔ gracia inválida y tipo desconocido se rechazan (0.546501ms)
+✔ datos anteriores sin tipo siguen siendo estándar (0.449444ms)
+✔ preparación rechaza gracia incompleta sin llegar al HTTP (0.332069ms)
+✔ nodo Code usa la misma jerarquía para factura con gracia (9.100168ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119.487662

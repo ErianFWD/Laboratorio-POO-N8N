@@ -1,0 +1,55 @@
+{
+  "facturas": [
+    {
+      "id": "FAC-001",
+      "cliente": "Café Central",
+      "monto": 125000,
+      "pais": "CR",
+      "fechaEmision": "2026-09-10",
+      "plazoDiasHabiles": 3,
+      "estado": "pendiente",
+      "tipo": "estandar"
+    },
+    {
+      "id": "FAC-002",
+      "cliente": "Comercial Sol",
+      "monto": 89000,
+      "pais": "CR",
+      "fechaEmision": "2026-10-16",
+      "plazoDiasHabiles": 1,
+      "estado": "pendiente",
+      "tipo": "estandar"
+    },
+    {
+      "id": "FAC-003",
+      "cliente": "Servicios Norte",
+      "monto": 45000,
+      "pais": "CR",
+      "fechaEmision": "2026-10-19",
+      "plazoDiasHabiles": 15,
+      "estado": "pendiente",
+      "tipo": "estandar"
+    },
+    {
+      "id": "FAC-004",
+      "cliente": "Cliente Pagado",
+      "monto": 30000,
+      "pais": "CR",
+      "fechaEmision": "2026-09-01",
+      "plazoDiasHabiles": 15,
+      "estado": "pagada",
+      "tipo": "estandar"
+    },
+    {
+      "id": "FAC-005",
+      "cliente": "Distribuidora Horizonte",
+      "monto": 75000,
+      "pais": "CR",
+      "fechaEmision": "2026-10-15",
+      "plazoDiasHabiles": 1,
+      "estado": "pendiente",
+      "tipo": "con_gracia",
+      "diasGracia": 2
+    }
+  ]
+}

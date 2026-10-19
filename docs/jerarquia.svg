@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300">
+<rect width="720" height="300" fill="white"/>
+<g font-family="Arial,sans-serif" text-anchor="middle" fill="#183b43">
+<rect x="230" y="20" width="260" height="75" rx="8" fill="#ecf4f0" stroke="#25745e"/>
+<text x="360" y="47" font-size="20" font-weight="bold">Factura</text><text x="360" y="73" font-size="13">evaluar → this.calcularVencimiento</text>
+<path d="M360 95 L351 111 L369 111 Z" fill="white" stroke="#25745e"/>
+<path d="M360 111 V145 M170 145 H550 M170 145 V180 M550 145 V180" fill="none" stroke="#25745e" stroke-width="2"/>
+<rect x="20" y="180" width="300" height="95" rx="8" fill="#ecf4f0" stroke="#25745e"/>
+<text x="170" y="207" font-size="18" font-weight="bold">FacturaEstandar</text><text x="170" y="233" font-size="13">calcularVencimiento(calendario)</text><text x="170" y="255" font-size="13">Solo plazo contractual</text>
+<rect x="400" y="180" width="300" height="95" rx="8" fill="#ecf4f0" stroke="#25745e"/>
+<text x="550" y="207" font-size="18" font-weight="bold">FacturaConGracia</text><text x="550" y="233" font-size="13">calcularVencimiento(calendario)</text><text x="550" y="255" font-size="13">super + 1 a 5 días hábiles de gracia</text>
+</g></svg>

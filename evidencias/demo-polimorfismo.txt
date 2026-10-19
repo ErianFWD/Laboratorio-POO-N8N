@@ -1,0 +1,24 @@
+{
+  "clase": "FacturaEstandar",
+  "vencimiento": "2026-10-16",
+  "evaluacion": {
+    "id": "DEMO",
+    "accion": "actualizar",
+    "cambios": {
+      "fechaVencimiento": "2026-10-16",
+      "estado": "vencida"
+    }
+  }
+}
+{
+  "clase": "FacturaConGracia",
+  "vencimiento": "2026-10-20",
+  "evaluacion": {
+    "id": "DEMO",
+    "accion": "actualizar",
+    "cambios": {
+      "fechaVencimiento": "2026-10-20",
+      "estado": "pendiente"
+    }
+  }
+}
